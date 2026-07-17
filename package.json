@@ -1,0 +1,19 @@
+{
+  "name": "abacuscalculator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Home loan serviceability calculator — calculation engine",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.4",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
