@@ -1,7 +1,10 @@
 // Pure calculation engine for the Borrowing Power Calculator (Bendigo vs ColCap).
-// Implements BUILD_SPEC.md exactly. No I/O, no framework imports. All money in
-// plain dollars (not cents) to match the spec's Excel-derived arithmetic; this
+// No I/O, no framework imports. All money in plain dollars (not cents) — this
 // is an estimate/analysis tool, not a settlement-grade ledger.
+//
+// Tax brackets and HEM tables are the real production data (calc_data.json:
+// tax_brackets_FY2627, medicare_FY2526, hem_bendigo, hem_colcap) — not the
+// illustrative placeholder numbers from the design mockup.
 
 export function incomeTax(taxable, brackets) {
   if (taxable <= 0) return 0;
@@ -52,146 +55,148 @@ export function presentValue(monthlyRate, months, pmt) {
   return (pmt * (1 - Math.pow(1 + monthlyRate, -months))) / monthlyRate;
 }
 
-// Runs the calculation once for a single funder's constants.
-// inputs: shared customer scenario. funder: { otherIncomeShade, creditCardRate, rate }.
-// hemTable/taxBrackets/medicareConfig: that funder's data tables.
+// inputs: { loanType: 'OO'|'INV', structure: 'Single'|'Couple', dependants, primaryIncome,
+//           primaryOther, secondaryIncome, secondaryOther, ccLimit, otherMonthly,
+//           livingExpenses, term (years) }
+// funder: { otherIncomeShade (0-1), creditCardRate (0-1), rateOwnerOccupied (%),
+//           rateInvestor (%), buffer (%) }
 export function runFunderCalc(inputs, funder, hemTable, taxBrackets, medicareConfig) {
-  const {
-    loanType,
-    structure,
-    dependants,
-    primaryIncome,
-    primaryOther,
-    secondaryIncome,
-    secondaryOther,
-    creditCardLimit,
-    otherMonthlyCommitments,
-    declaredMonthlyExpenses,
-    loanTermMonths,
-  } = inputs;
+  const { loanType, structure, dependants, primaryIncome, primaryOther, secondaryIncome, secondaryOther, ccLimit, otherMonthly, livingExpenses, term } = inputs;
 
   const isCouple = structure === "Couple";
   const shade = funder.otherIncomeShade;
 
-  // Income
-  const primaryOtherCounted = primaryOther * shade;
   const secondaryIncomeUsed = isCouple ? secondaryIncome : 0;
-  const secondaryOtherCounted = isCouple ? secondaryOther * shade : 0;
-  const totalGrossIncome = primaryIncome + primaryOtherCounted + secondaryIncomeUsed + secondaryOtherCounted;
+  const secondaryOtherUsed = isCouple ? secondaryOther : 0;
 
-  // Tax
-  const primaryTaxable = primaryIncome + primaryOtherCounted;
-  const primaryIncomeTax = incomeTax(primaryTaxable, taxBrackets);
-  const primaryMedicare = medicare(primaryTaxable, medicareConfig);
-  const primaryTax = primaryIncomeTax + primaryMedicare;
+  const baseIncome = primaryIncome + secondaryIncomeUsed;
+  const otherRaw = primaryOther + secondaryOtherUsed;
+  const otherShaded = otherRaw * shade;
+  const totalGrossIncome = baseIncome + otherShaded;
 
-  const secondaryTaxable = isCouple ? secondaryIncomeUsed + secondaryOtherCounted : 0;
-  const secondaryIncomeTax = isCouple ? incomeTax(secondaryTaxable, taxBrackets) : 0;
-  const secondaryMedicare = isCouple ? medicare(secondaryTaxable, medicareConfig) : 0;
-  const secondaryTax = secondaryIncomeTax + secondaryMedicare;
+  const primaryTaxable = primaryIncome + primaryOther * shade;
+  const secondaryTaxable = isCouple ? secondaryIncomeUsed + secondaryOtherUsed * shade : 0;
 
-  const totalTax = primaryTax + secondaryTax;
+  const incomeTaxTotal = incomeTax(primaryTaxable, taxBrackets) + (isCouple ? incomeTax(secondaryTaxable, taxBrackets) : 0);
+  const medicareTotal = medicare(primaryTaxable, medicareConfig) + (isCouple ? medicare(secondaryTaxable, medicareConfig) : 0);
 
-  // Net income
-  const netAnnual = totalGrossIncome - totalTax;
+  const netAnnual = totalGrossIncome - incomeTaxTotal - medicareTotal;
   const netMonthly = netAnnual / 12;
 
-  // HEM
   const hem = computeHem(totalGrossIncome, dependants, structure, hemTable);
+  const livingUsed = Math.max(hem.hemMonthly, livingExpenses);
+  const hemBinds = hem.hemMonthly >= livingExpenses;
 
-  // Expenses
-  const expensesUsed = Math.max(hem.hemMonthly, declaredMonthlyExpenses);
-  const creditCardMonthly = creditCardLimit * funder.creditCardRate;
-  const totalMonthlyExpenses = expensesUsed + creditCardMonthly + otherMonthlyCommitments;
+  const cc = ccLimit * funder.creditCardRate;
+  const commitments = livingUsed + cc + otherMonthly;
+  const surplus = netMonthly - commitments;
 
-  // Net available & max borrowing
-  const netAvailableMonthly = netMonthly - totalMonthlyExpenses;
-  const rate = loanType === "Investor" ? funder.rateInvestor : funder.rateOwnerOccupied;
-  const maxBorrowing =
-    netAvailableMonthly <= 0 ? 0 : presentValue(rate / 12, loanTermMonths, netAvailableMonthly);
+  const baseRate = loanType === "INV" ? funder.rateInvestor : funder.rateOwnerOccupied;
+  const assessRate = baseRate + funder.buffer;
+  const r = assessRate / 100 / 12;
+  const n = Math.max(1, term) * 12;
+  const factor = r === 0 ? n : (1 - Math.pow(1 + r, -n)) / r;
+  const maxBorrowing = surplus > 0 ? Math.round((surplus * factor) / 1000) * 1000 : 0;
 
   return {
-    // funder-difference drivers (highlight these three in the UI)
+    // funder-difference drivers (highlight these in the UI)
     otherIncomeShade: shade,
     creditCardRate: funder.creditCardRate,
     hemMonthly: hem.hemMonthly,
 
-    // full breakdown, for drill-down
-    primaryOtherCounted,
-    secondaryIncomeUsed,
-    secondaryOtherCounted,
+    baseIncome,
+    otherRaw,
+    otherShaded,
     totalGrossIncome,
-    primaryTaxable,
-    primaryIncomeTax,
-    primaryMedicare,
-    primaryTax,
-    secondaryTaxable,
-    secondaryIncomeTax,
-    secondaryMedicare,
-    secondaryTax,
-    totalTax,
+    incomeTaxTotal,
+    medicareTotal,
     netAnnual,
     netMonthly,
     hemBandIndex: hem.bandIndex,
     hemBaseRowKey: hem.baseRowKey,
     hemAdditionalRowKey: hem.additionalRowKey,
-    hemExtraDep: hem.extraDep,
     hemWeekly: hem.hemWeekly,
-    expensesUsed,
-    creditCardMonthly,
-    otherMonthlyCommitments,
-    totalMonthlyExpenses,
-    netAvailableMonthly,
-    rate,
-    loanTermMonths,
+    livingUsed,
+    hemBinds,
+    cc,
+    otherMonthly,
+    commitments,
+    surplus,
+    baseRate,
+    assessRate,
     maxBorrowing,
   };
 }
 
-// assumptions: { rateOwnerOccupied, rateInvestor, bendigo: {otherIncomeShade, creditCardRate},
-//                colcap: {otherIncomeShade, creditCardRate} }
+// assumptions: { rateOO, rateINV, benCC, colCC, benShade, colShade, buffer } — all as
+// plain percentage numbers (e.g. rateOO: 6.19 means 6.19% p.a.), matching the assumption
+// panel's editable fields.
 // data: { tax_brackets_FY2627, medicare_FY2526, hem_bendigo, hem_colcap }
 export function computeBoth(inputs, assumptions, data) {
   const bendigoFunder = {
-    otherIncomeShade: assumptions.bendigo.otherIncomeShade,
-    creditCardRate: assumptions.bendigo.creditCardRate,
-    rateOwnerOccupied: assumptions.rateOwnerOccupied,
-    rateInvestor: assumptions.rateInvestor,
+    otherIncomeShade: assumptions.benShade / 100,
+    creditCardRate: assumptions.benCC / 100,
+    rateOwnerOccupied: assumptions.rateOO,
+    rateInvestor: assumptions.rateINV,
+    buffer: assumptions.buffer,
   };
   const colcapFunder = {
-    otherIncomeShade: assumptions.colcap.otherIncomeShade,
-    creditCardRate: assumptions.colcap.creditCardRate,
-    rateOwnerOccupied: assumptions.rateOwnerOccupied,
-    rateInvestor: assumptions.rateInvestor,
+    otherIncomeShade: assumptions.colShade / 100,
+    creditCardRate: assumptions.colCC / 100,
+    rateOwnerOccupied: assumptions.rateOO,
+    rateInvestor: assumptions.rateINV,
+    buffer: assumptions.buffer,
   };
 
-  const bendigo = runFunderCalc(
-    inputs,
-    bendigoFunder,
-    data.hem_bendigo,
-    data.tax_brackets_FY2627,
-    data.medicare_FY2526
-  );
-  const colcap = runFunderCalc(
-    inputs,
-    colcapFunder,
-    data.hem_colcap,
-    data.tax_brackets_FY2627,
-    data.medicare_FY2526
-  );
+  const bendigo = runFunderCalc(inputs, bendigoFunder, data.hem_bendigo, data.tax_brackets_FY2627, data.medicare_FY2526);
+  const colcap = runFunderCalc(inputs, colcapFunder, data.hem_colcap, data.tax_brackets_FY2627, data.medicare_FY2526);
 
   const bendigoMax = bendigo.maxBorrowing;
   const colcapMax = colcap.maxBorrowing;
   const varianceDollar = colcapMax - bendigoMax;
   const variancePct = bendigoMax === 0 ? 0 : varianceDollar / bendigoMax;
-  const direction = varianceDollar > 0 ? "ColCap estimates higher" : varianceDollar < 0 ? "ColCap estimates lower" : "No difference";
+  const direction =
+    varianceDollar === 0
+      ? "Both funders estimate the same maximum borrowing."
+      : `ColCap estimates $${Math.abs(varianceDollar).toLocaleString("en-AU")} ${varianceDollar > 0 ? "higher" : "lower"} than Bendigo for this scenario.`;
 
   return { bendigo, colcap, bendigoMax, colcapMax, varianceDollar, variancePct, direction };
 }
 
 export const DEFAULT_ASSUMPTIONS = {
-  rateOwnerOccupied: 0.0903,
-  rateInvestor: 0.0903,
-  bendigo: { otherIncomeShade: 0.8, creditCardRate: 0.038 },
-  colcap: { otherIncomeShade: 1.0, creditCardRate: 0.03 },
+  rateOO: 6.19,
+  rateINV: 6.54,
+  benCC: 3.8,
+  colCC: 3.0,
+  benShade: 80,
+  colShade: 90,
+  buffer: 3.0,
+};
+
+export const DEFAULT_INPUTS = {
+  loanType: "OO",
+  structure: "Couple",
+  dependants: 2,
+  primaryIncome: 145000,
+  primaryOther: 12000,
+  secondaryIncome: 88000,
+  secondaryOther: 0,
+  ccLimit: 15000,
+  otherMonthly: 850,
+  livingExpenses: 4200,
+  term: 30,
+};
+
+export const CLEARED_INPUTS = {
+  loanType: "OO",
+  structure: "Single",
+  dependants: 0,
+  primaryIncome: 0,
+  primaryOther: 0,
+  secondaryIncome: 0,
+  secondaryOther: 0,
+  ccLimit: 0,
+  otherMonthly: 0,
+  livingExpenses: 0,
+  term: 30,
 };
