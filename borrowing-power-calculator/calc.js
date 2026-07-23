@@ -1,9 +1,9 @@
-// Pure calculation engine for the Borrowing Power Calculator (Bendigo vs ColCap).
+// Pure calculation engine for the Borrowing Power Calculator (Funder B vs Funder C).
 // No I/O, no framework imports. All money in plain dollars (not cents) — this
 // is an estimate/analysis tool, not a settlement-grade ledger.
 //
 // Tax brackets and HEM tables are the real production data (calc_data.json:
-// tax_brackets_FY2627, medicare_FY2526, hem_bendigo, hem_colcap) — not the
+// tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_funder_c) — not the
 // illustrative placeholder numbers from the design mockup.
 
 export function incomeTax(taxable, brackets) {
@@ -59,7 +59,7 @@ export function presentValue(monthlyRate, months, pmt) {
 //           primaryOther, secondaryIncome, secondaryOther, ccLimit, otherMonthly,
 //           livingExpenses, term (years) }
 // funder: { otherIncomeShade (0-1), creditCardRate (0-1), rateOwnerOccupied (%),
-//           rateInvestor (%), buffer (%) }
+//           rateInvestor (%), buffer (%) } — rates are this funder's own.
 export function runFunderCalc(inputs, funder, hemTable, taxBrackets, medicareConfig) {
   const { loanType, structure, dependants, primaryIncome, primaryOther, secondaryIncome, secondaryOther, ccLimit, otherMonthly, livingExpenses, term } = inputs;
 
@@ -128,48 +128,50 @@ export function runFunderCalc(inputs, funder, hemTable, taxBrackets, medicareCon
   };
 }
 
-// assumptions: { rateOO, rateINV, benCC, colCC, benShade, colShade, buffer } — all as
-// plain percentage numbers (e.g. rateOO: 6.19 means 6.19% p.a.), matching the assumption
-// panel's editable fields.
-// data: { tax_brackets_FY2627, medicare_FY2526, hem_bendigo, hem_colcap }
+// assumptions: { fbRateOO, fbRateINV, fcRateOO, fcRateINV, fbCC, fcCC, fbShade, fcShade,
+//                buffer } — all as plain percentage numbers (e.g. fbRateOO: 6.19 means
+//                6.19% p.a.), matching the assumption panel's editable fields.
+// data: { tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_funder_c }
 export function computeBoth(inputs, assumptions, data) {
-  const bendigoFunder = {
-    otherIncomeShade: assumptions.benShade / 100,
-    creditCardRate: assumptions.benCC / 100,
-    rateOwnerOccupied: assumptions.rateOO,
-    rateInvestor: assumptions.rateINV,
+  const funderBConfig = {
+    otherIncomeShade: assumptions.fbShade / 100,
+    creditCardRate: assumptions.fbCC / 100,
+    rateOwnerOccupied: assumptions.fbRateOO,
+    rateInvestor: assumptions.fbRateINV,
     buffer: assumptions.buffer,
   };
-  const colcapFunder = {
-    otherIncomeShade: assumptions.colShade / 100,
-    creditCardRate: assumptions.colCC / 100,
-    rateOwnerOccupied: assumptions.rateOO,
-    rateInvestor: assumptions.rateINV,
+  const funderCConfig = {
+    otherIncomeShade: assumptions.fcShade / 100,
+    creditCardRate: assumptions.fcCC / 100,
+    rateOwnerOccupied: assumptions.fcRateOO,
+    rateInvestor: assumptions.fcRateINV,
     buffer: assumptions.buffer,
   };
 
-  const bendigo = runFunderCalc(inputs, bendigoFunder, data.hem_bendigo, data.tax_brackets_FY2627, data.medicare_FY2526);
-  const colcap = runFunderCalc(inputs, colcapFunder, data.hem_colcap, data.tax_brackets_FY2627, data.medicare_FY2526);
+  const funderB = runFunderCalc(inputs, funderBConfig, data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526);
+  const funderC = runFunderCalc(inputs, funderCConfig, data.hem_funder_c, data.tax_brackets_FY2627, data.medicare_FY2526);
 
-  const bendigoMax = bendigo.maxBorrowing;
-  const colcapMax = colcap.maxBorrowing;
-  const varianceDollar = colcapMax - bendigoMax;
-  const variancePct = bendigoMax === 0 ? 0 : varianceDollar / bendigoMax;
+  const funderBMax = funderB.maxBorrowing;
+  const funderCMax = funderC.maxBorrowing;
+  const varianceDollar = funderCMax - funderBMax;
+  const variancePct = funderBMax === 0 ? 0 : varianceDollar / funderBMax;
   const direction =
     varianceDollar === 0
       ? "Both funders estimate the same maximum borrowing."
-      : `ColCap estimates $${Math.abs(varianceDollar).toLocaleString("en-AU")} ${varianceDollar > 0 ? "higher" : "lower"} than Bendigo for this scenario.`;
+      : `Funder C estimates $${Math.abs(varianceDollar).toLocaleString("en-AU")} ${varianceDollar > 0 ? "higher" : "lower"} than Funder B for this scenario.`;
 
-  return { bendigo, colcap, bendigoMax, colcapMax, varianceDollar, variancePct, direction };
+  return { funderB, funderC, funderBMax, funderCMax, varianceDollar, variancePct, direction };
 }
 
 export const DEFAULT_ASSUMPTIONS = {
-  rateOO: 6.19,
-  rateINV: 6.54,
-  benCC: 3.8,
-  colCC: 3.0,
-  benShade: 80,
-  colShade: 90,
+  fbRateOO: 6.19,
+  fbRateINV: 6.54,
+  fcRateOO: 6.19,
+  fcRateINV: 6.54,
+  fbCC: 3.8,
+  fcCC: 3.0,
+  fbShade: 80,
+  fcShade: 90,
   buffer: 3.0,
 };
 

@@ -131,8 +131,8 @@ select, .plain-input {
 /* Zone 2: results */
 .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .result-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 22px 24px 18px; border-top: 3px solid transparent; }
-.result-card.bendigo { border-top-color: #28527a; }
-.result-card.colcap { border-top-color: #2a6e5e; }
+.result-card.funder-b { border-top-color: #28527a; }
+.result-card.funder-c { border-top-color: #2a6e5e; }
 .result-label-row { display: flex; align-items: center; gap: 8px; }
 .result-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .result-label { font: 600 12px "IBM Plex Sans", sans-serif; letter-spacing: 0.08em; color: #3d4854; }
@@ -150,8 +150,8 @@ select, .plain-input {
 .breakdown-row-grid { display: grid; grid-template-columns: minmax(240px, 1fr) 170px 170px 190px; gap: 0; }
 .breakdown-head { padding: 8px 16px; border-bottom: 1px solid #e8ebee; background: #fff; }
 .breakdown-head-cell { font: 600 10px "IBM Plex Sans", sans-serif; letter-spacing: 0.1em; color: #a3abb4; }
-.breakdown-head-cell.bendigo { color: #28527a; text-align: right; }
-.breakdown-head-cell.colcap { color: #2a6e5e; text-align: right; }
+.breakdown-head-cell.funder-b { color: #28527a; text-align: right; }
+.breakdown-head-cell.funder-c { color: #2a6e5e; text-align: right; }
 .breakdown-head-cell.delta { text-align: right; }
 
 .breakdown-row { padding: 9px 16px; border-bottom: 1px solid #eef1f3; align-items: center; background: #fff; }
@@ -184,7 +184,8 @@ select, .plain-input {
 .assum-chevron { font: 400 11px "IBM Plex Mono", monospace; color: #9c9384; width: 10px; flex-shrink: 0; }
 .assum-header-title { font: 600 12px "IBM Plex Sans", sans-serif; letter-spacing: 0.08em; color: #5b5344; }
 .assum-header-desc { font: 400 12px "IBM Plex Sans", sans-serif; color: #9c9384; }
-.assum-body { border-top: 1px solid #e0dbd2; padding: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.assum-body { border-top: 1px solid #e0dbd2; padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+.assum-shared-note { border-top: 1px solid #e0dbd2; padding: 10px 16px; }
 .assum-group { display: flex; flex-direction: column; gap: 10px; }
 .assum-group-title { font: 600 11px "IBM Plex Sans", sans-serif; letter-spacing: 0.1em; color: #9c9384; }
 .assum-row { display: flex; align-items: center; gap: 10px; }

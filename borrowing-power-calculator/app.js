@@ -106,21 +106,21 @@ function renderInputsCard() {
 }
 
 function renderResultsZone(computed) {
-  const { bendigo: B, colcap: C, varianceDollar, variancePct, direction } = computed;
+  const { funderB: B, funderC: C, varianceDollar, variancePct, direction } = computed;
   return `
   <div class="results-grid">
-    <div class="result-card bendigo">
+    <div class="result-card funder-b">
       <div class="result-label-row">
         <span class="result-swatch" style="background:#28527a"></span>
-        <span class="result-label">BENDIGO MAX BORROWING</span>
+        <span class="result-label">FUNDER B MAX BORROWING</span>
       </div>
       <div class="result-figure">${fmtMoney(B.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${B.assessRate.toFixed(2)}% · surplus ${fmtMoney(B.surplus)}/mo</div>
     </div>
-    <div class="result-card colcap">
+    <div class="result-card funder-c">
       <div class="result-label-row">
         <span class="result-swatch" style="background:#2a6e5e"></span>
-        <span class="result-label">COLCAP MAX BORROWING</span>
+        <span class="result-label">FUNDER C MAX BORROWING</span>
       </div>
       <div class="result-figure">${fmtMoney(C.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${C.assessRate.toFixed(2)}% · surplus ${fmtMoney(C.surplus)}/mo</div>
@@ -169,11 +169,11 @@ function breakdownRow(opts) {
 
 function renderBreakdownCard(computed) {
   const { inp, a } = state;
-  const { bendigo: B, colcap: C } = computed;
+  const { funderB: B, funderC: C } = computed;
   const allOpen = state.open.breakdown && state.open.assum && state.open.hem && state.open.notes;
 
-  const hemBenBand = bandLabel(data.hem_bendigo, B.hemBandIndex);
-  const hemColBand = bandLabel(data.hem_colcap, C.hemBandIndex);
+  const hemBBand = bandLabel(data.hem_funder_b, B.hemBandIndex);
+  const hemCBand = bandLabel(data.hem_funder_c, C.hemBandIndex);
   const bindsB = B.hemBinds || C.hemBinds;
 
   const rows = [
@@ -185,7 +185,7 @@ function renderBreakdownCard(computed) {
       bVal: B.otherShaded,
       cVal: C.otherShaded,
       driver: true,
-      note: `Declared ${fmtMoney(B.otherRaw)} · shading Bendigo ${a.benShade}% vs ColCap ${a.colShade}%`,
+      note: `Declared ${fmtMoney(B.otherRaw)} · shading Funder B ${a.fbShade}% vs Funder C ${a.fcShade}%`,
     }),
     breakdownRow({ label: "Assessable gross income (p.a.)", bDisplay: fmtMoney(B.totalGrossIncome), cDisplay: fmtMoney(C.totalGrossIncome), bVal: B.totalGrossIncome, cVal: C.totalGrossIncome }),
     breakdownRow({
@@ -213,7 +213,7 @@ function renderBreakdownCard(computed) {
       bVal: B.hemMonthly,
       cVal: C.hemMonthly,
       driver: true,
-      note: `Bendigo band ${hemBenBand} · ColCap band ${hemColBand} — ${inp.structure}, ${inp.dependants} dependant(s)`,
+      note: `Funder B band ${hemBBand} · Funder C band ${hemCBand} — ${inp.structure}, ${inp.dependants} dependant(s)`,
     }),
     breakdownRow({
       label: "Living expenses applied (monthly)",
@@ -230,7 +230,7 @@ function renderBreakdownCard(computed) {
       bVal: B.cc,
       cVal: C.cc,
       driver: true,
-      note: `Limit ${fmtMoney(inp.ccLimit)} × Bendigo ${a.benCC}% vs ColCap ${a.colCC}%`,
+      note: `Limit ${fmtMoney(inp.ccLimit)} × Funder B ${a.fbCC}% vs Funder C ${a.fcCC}%`,
     }),
     breakdownRow({ label: "Other commitments (monthly)", bDisplay: fmtMoney(inp.otherMonthly), cDisplay: fmtMoney(inp.otherMonthly), same: true }),
     breakdownRow({
@@ -265,9 +265,9 @@ function renderBreakdownCard(computed) {
         ? `<div>
       <div class="breakdown-row-grid breakdown-head">
         <span class="breakdown-head-cell">STEP</span>
-        <span class="breakdown-head-cell bendigo">BENDIGO</span>
-        <span class="breakdown-head-cell colcap">COLCAP</span>
-        <span class="breakdown-head-cell delta">Δ (COLCAP − BENDIGO)</span>
+        <span class="breakdown-head-cell funder-b">FUNDER B</span>
+        <span class="breakdown-head-cell funder-c">FUNDER C</span>
+        <span class="breakdown-head-cell delta">Δ (FUNDER C − FUNDER B)</span>
       </div>
       ${rows}
     </div>`
@@ -289,47 +289,60 @@ function renderAssumptionsCard() {
       state.open.assum
         ? `<div class="assum-body">
       <div class="assum-group">
-        <div class="assum-group-title">INTEREST RATES (BOTH FUNDERS)</div>
+        <div class="assum-group-title">FUNDER B — INTEREST RATES</div>
         <label class="assum-row">
           <span class="assum-row-label">Owner Occupied</span>
-          <input class="assum-input" data-assum="rateOO" value="${a.rateOO}"/>
+          <input class="assum-input" data-assum="fbRateOO" value="${a.fbRateOO}"/>
           <span class="assum-suffix">% p.a.</span>
         </label>
         <label class="assum-row">
           <span class="assum-row-label">Investor</span>
-          <input class="assum-input" data-assum="rateINV" value="${a.rateINV}"/>
+          <input class="assum-input" data-assum="fbRateINV" value="${a.fbRateINV}"/>
           <span class="assum-suffix">% p.a.</span>
         </label>
-        <div class="assum-note">Assessment buffer of +${a.buffer.toFixed(2)}% applied on top (fixed model setting).</div>
+      </div>
+      <div class="assum-group">
+        <div class="assum-group-title">FUNDER C — INTEREST RATES</div>
+        <label class="assum-row">
+          <span class="assum-row-label">Owner Occupied</span>
+          <input class="assum-input" data-assum="fcRateOO" value="${a.fcRateOO}"/>
+          <span class="assum-suffix">% p.a.</span>
+        </label>
+        <label class="assum-row">
+          <span class="assum-row-label">Investor</span>
+          <input class="assum-input" data-assum="fcRateINV" value="${a.fcRateINV}"/>
+          <span class="assum-suffix">% p.a.</span>
+        </label>
       </div>
       <div class="assum-group">
         <div class="assum-group-title">CREDIT CARD % OF LIMIT /MO</div>
         <label class="assum-row">
-          <span class="assum-row-label">Bendigo</span>
-          <input class="assum-input" data-assum="benCC" value="${a.benCC}"/>
+          <span class="assum-row-label">Funder B</span>
+          <input class="assum-input" data-assum="fbCC" value="${a.fbCC}"/>
           <span class="assum-suffix">%</span>
         </label>
         <label class="assum-row">
-          <span class="assum-row-label">ColCap</span>
-          <input class="assum-input" data-assum="colCC" value="${a.colCC}"/>
+          <span class="assum-row-label">Funder C</span>
+          <input class="assum-input" data-assum="fcCC" value="${a.fcCC}"/>
           <span class="assum-suffix">%</span>
         </label>
       </div>
       <div class="assum-group">
         <div class="assum-group-title">OTHER-INCOME SHADING</div>
         <label class="assum-row">
-          <span class="assum-row-label">Bendigo</span>
-          <input class="assum-input" data-assum="benShade" value="${a.benShade}"/>
+          <span class="assum-row-label">Funder B</span>
+          <input class="assum-input" data-assum="fbShade" value="${a.fbShade}"/>
           <span class="assum-suffix">%</span>
         </label>
         <label class="assum-row">
-          <span class="assum-row-label">ColCap</span>
-          <input class="assum-input" data-assum="colShade" value="${a.colShade}"/>
+          <span class="assum-row-label">Funder C</span>
+          <input class="assum-input" data-assum="fcShade" value="${a.fcShade}"/>
           <span class="assum-suffix">%</span>
         </label>
         <div class="assum-note">% of declared other income counted as assessable.</div>
       </div>
-    </div>`
+    </div>
+    <div class="assum-shared-note">Assessment buffer of +${a.buffer.toFixed(2)}% applied on top of each funder's rate above (fixed model setting, same for both).</div>`
         : ""
     }
   </div>`;
@@ -354,11 +367,10 @@ function hemRows(hemTable, structure, activeIdx) {
 
 function renderHemCard(computed) {
   const { inp } = state;
-  const { bendigo: B, colcap: C } = computed;
-  const benDepKey = inp.structure === "Couple" ? "couple_additional" : "single_additional";
-  const colDepKey = benDepKey;
-  const benDepMonthly = (data.hem_bendigo.rows[benDepKey][B.hemBandIndex] * 52) / 12;
-  const colDepMonthly = (data.hem_colcap.rows[colDepKey][C.hemBandIndex] * 52) / 12;
+  const { funderB: B, funderC: C } = computed;
+  const depKey = inp.structure === "Couple" ? "couple_additional" : "single_additional";
+  const fbDepMonthly = (data.hem_funder_b.rows[depKey][B.hemBandIndex] * 52) / 12;
+  const fcDepMonthly = (data.hem_funder_c.rows[depKey][C.hemBandIndex] * 52) / 12;
 
   return `
   <div class="card">
@@ -373,8 +385,8 @@ function renderHemCard(computed) {
       <div class="hem-col">
         <div class="hem-col-header">
           <span class="hem-swatch" style="background:#28527a"></span>
-          <span class="hem-col-title">BENDIGO HEM</span>
-          <span class="hem-col-desc">+ ${fmtMoney(benDepMonthly)}/mo per dependant (varies by band)</span>
+          <span class="hem-col-title">FUNDER B HEM</span>
+          <span class="hem-col-desc">+ ${fmtMoney(fbDepMonthly)}/mo per dependant (varies by band)</span>
         </div>
         <div class="hem-table-wrap">
           <div class="hem-head-row">
@@ -382,14 +394,14 @@ function renderHemCard(computed) {
             <span class="hem-head-cell right">SINGLE</span>
             <span class="hem-head-cell right">COUPLE</span>
           </div>
-          ${hemRows(data.hem_bendigo, inp.structure, B.hemBandIndex)}
+          ${hemRows(data.hem_funder_b, inp.structure, B.hemBandIndex)}
         </div>
       </div>
       <div class="hem-col">
         <div class="hem-col-header">
           <span class="hem-swatch" style="background:#2a6e5e"></span>
-          <span class="hem-col-title">COLCAP HEM</span>
-          <span class="hem-col-desc">+ ${fmtMoney(colDepMonthly)}/mo per dependant (flat $90/wk)</span>
+          <span class="hem-col-title">FUNDER C HEM</span>
+          <span class="hem-col-desc">+ ${fmtMoney(fcDepMonthly)}/mo per dependant (flat $90/wk)</span>
         </div>
         <div class="hem-table-wrap">
           <div class="hem-head-row">
@@ -397,7 +409,7 @@ function renderHemCard(computed) {
             <span class="hem-head-cell right">SINGLE</span>
             <span class="hem-head-cell right">COUPLE</span>
           </div>
-          ${hemRows(data.hem_colcap, inp.structure, C.hemBandIndex)}
+          ${hemRows(data.hem_funder_c, inp.structure, C.hemBandIndex)}
         </div>
       </div>
     </div>
@@ -420,9 +432,9 @@ function renderNotesCard() {
       <div class="notes-line">· Acquisition/estimate tool: intentionally simpler than full serviceability.</div>
       <div class="notes-line">· A +${state.a.buffer.toFixed(2)}% serviceability buffer is applied to the entered rate for both funders. Buffer is a fixed model setting, not a per-scenario input.</div>
       <div class="notes-line">· Tax = FY2026/27 resident marginal scale; Medicare = FY2025/26 thresholds with the 10% shade-in band (single scale only) — flagged mismatch.</div>
-      <div class="notes-line">· "Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Bendigo/ColCap shading levers above).</div>
+      <div class="notes-line">· "Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Funder B/Funder C shading levers above).</div>
       <div class="notes-line">· Rental income is NOT separately modelled (falls in "other income").</div>
-      <div class="notes-line">· HEM tables are each funder's full published band table (Bendigo 15 bands; ColCap 14-band "Australia" table, Q2 2025 placeholder). ColCap's per-dependant add-on is flat $90/week; Bendigo's varies by band.</div>
+      <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band "Australia" table, Q2 2025 placeholder). Funder C's per-dependant add-on is flat $90/week; Funder B's varies by band.</div>
       <div class="notes-line">· Maximum borrowing = present value of the monthly surplus as a P&amp;I annuity over the loan term at the assessed rate, rounded to the nearest $1,000. No LVR, lender caps, or DTI overlays applied.</div>
       <div class="notes-line">· Negative gearing, rental expense offsets, and existing mortgage repayments are out of scope for this comparison.</div>
       <div class="notes-line">· Indicative analysis only — not a credit decision tool.</div>
