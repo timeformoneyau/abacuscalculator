@@ -106,25 +106,42 @@ function renderInputsCard() {
 }
 
 const LEVER_COLOR = { B: "#28527a", C: "#2a6e5e" };
+const LEVER_NOTE = {
+  shade: "net of tax & Medicare",
+  hem: "living-expense floor",
+  cc: "% of card limit",
+  rate: "assessed rate spread",
+};
 
 function renderResultsZone(computed, contributorsResult) {
   const { funderB: B, funderC: C, varianceDollar, variancePct, direction } = computed;
   const leader = B.maxBorrowing === C.maxBorrowing ? null : B.maxBorrowing > C.maxBorrowing ? "B" : "C";
+  const gapAbsFmt = fmtMoney(Math.abs(varianceDollar));
+  const gapPctFmt = Math.abs(variancePct * 100).toFixed(1) + "%";
 
-  const badge = (who) => (leader === who ? '<span class="leader-badge">▲ HIGHER</span>' : "");
+  const badge = (who) => (leader === who ? '<span class="leader-badge">HIGHER</span>' : "");
 
-  const contributorRows = contributorsResult.contributors
+  function varianceLine(who, otherName) {
+    if (varianceDollar === 0) return `<div class="result-variance-line lose">Level with the other funder</div>`;
+    if (leader === who) return `<div class="result-variance-line win">▲ ${gapAbsFmt} higher · +${gapPctFmt} vs ${otherName}</div>`;
+    return `<div class="result-variance-line lose">▼ ${gapAbsFmt} lower · −${gapPctFmt} vs ${otherName}</div>`;
+  }
+
+  const driverCells = contributorsResult.contributors
     .map((c, i) => {
-      const color = c.favors ? LEVER_COLOR[c.favors] : "#a3abb4";
-      const favorsText = c.favors ? `favors Funder ${c.favors}` : "no effect";
+      const color = c.favors ? LEVER_COLOR[c.favors] : "#8a939c";
+      const favoursText = c.favors ? `favours Funder ${c.favors}` : "negligible effect";
       return `
-      <div class="contributor-row">
-        <span class="contributor-rank">${i + 1}</span>
-        <span class="contributor-dot" style="background:${color}"></span>
-        <span class="contributor-label">${c.label}</span>
-        <span class="contributor-value">${fmtSigned(c.delta)}</span>
-        <span class="contributor-pct">${c.pctOfGap.toFixed(0)}% of gap</span>
-        <span class="contributor-favors">${favorsText}</span>
+      <div class="driver-cell">
+        <div class="driver-rank-name">
+          <span class="driver-rank">#${i + 1}</span>
+          <span class="driver-name">${c.label}</span>
+        </div>
+        <div class="driver-amounts">
+          <span class="driver-amount" style="color:${color}">${fmtMoney(Math.abs(c.delta))}</span>
+          <span class="driver-pct" style="color:${color}">${c.pctOfGap.toFixed(0)}% of variance</span>
+        </div>
+        <div class="driver-note">${favoursText} · ${LEVER_NOTE[c.key] || ""}</div>
       </div>`;
     })
     .join("");
@@ -139,6 +156,7 @@ function renderResultsZone(computed, contributorsResult) {
       </div>
       <div class="result-figure">${fmtMoney(B.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${B.assessRate.toFixed(2)}% · surplus ${fmtMoney(B.surplus)}/mo</div>
+      ${varianceLine("B", "Funder C")}
     </div>
     <div class="result-card funder-c${leader === "C" ? " leader" : ""}">
       <div class="result-label-row">
@@ -148,18 +166,16 @@ function renderResultsZone(computed, contributorsResult) {
       </div>
       <div class="result-figure">${fmtMoney(C.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${C.assessRate.toFixed(2)}% · surplus ${fmtMoney(C.surplus)}/mo</div>
+      ${varianceLine("C", "Funder B")}
     </div>
   </div>
-  <div class="diff-panel">
-    <div class="diff-summary">
-      <span class="diff-summary-value">${fmtSigned(varianceDollar)}</span>
-      <span class="diff-summary-pct">(${(variancePct >= 0 ? "+" : "−") + Math.abs(variancePct * 100).toFixed(1)}%)</span>
-      <span class="diff-summary-text">${esc(direction)}</span>
+  <div class="drivers-panel">
+    <div class="drivers-header">
+      <span class="drivers-title">TOP DRIVERS OF THE ${gapAbsFmt} GAP</span>
+      <span class="drivers-direction">${esc(direction)}</span>
     </div>
-    <div class="diff-contributors">
-      <div class="diff-contributors-title">TOP CONTRIBUTORS TO THE GAP</div>
-      ${contributorRows}
-      <div class="diff-contributors-note">Estimated by swapping one policy setting at a time from Funder B's baseline; may not sum exactly to the total gap due to interaction effects.</div>
+    <div class="drivers-grid">
+      ${driverCells}
     </div>
   </div>`;
 }
