@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Borrowing Power Calculator — Bendigo vs ColCap</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header>
+  <h1>Borrowing Power Calculator</h1>
+  <p class="subtitle">Bendigo vs ColCap — internal estimate tool</p>
+</header>
+
+<main>
+  <section class="panel" id="scenario-panel">
+    <h2>Customer scenario</h2>
+    <form id="scenario-form">
+      <div class="field-grid">
+        <label>Loan type
+          <select name="loanType">
+            <option>Owner Occupied</option>
+            <option>Investor</option>
+          </select>
+        </label>
+        <label>Structure
+          <select name="structure" id="structure-select">
+            <option>Single</option>
+            <option>Couple</option>
+          </select>
+        </label>
+        <label>Dependants
+          <input type="number" name="dependants" value="0" min="0" step="1" />
+        </label>
+        <label>Loan term (months)
+          <input type="number" name="loanTermMonths" value="360" min="1" step="1" />
+        </label>
+
+        <label>Primary income ($/yr)
+          <input type="number" name="primaryIncome" value="100000" min="0" step="1000" />
+        </label>
+        <label>Primary other income ($/yr)
+          <input type="number" name="primaryOther" value="0" min="0" step="1000" />
+        </label>
+        <label class="couple-only">Secondary income ($/yr)
+          <input type="number" name="secondaryIncome" value="0" min="0" step="1000" />
+        </label>
+        <label class="couple-only">Secondary other income ($/yr)
+          <input type="number" name="secondaryOther" value="0" min="0" step="1000" />
+        </label>
+
+        <label>Credit card limit ($)
+          <input type="number" name="creditCardLimit" value="0" min="0" step="1000" />
+        </label>
+        <label>Other monthly commitments ($/mo)
+          <input type="number" name="otherMonthlyCommitments" value="0" min="0" step="50" />
+        </label>
+        <label>Declared monthly expenses ($/mo)
+          <input type="number" name="declaredMonthlyExpenses" value="0" min="0" step="50" />
+        </label>
+      </div>
+      <button type="submit">Calculate</button>
+    </form>
+  </section>
+
+  <section class="panel" id="assumptions-panel">
+    <h2>Editable assumption levers</h2>
+    <form id="assumptions-form">
+      <div class="field-grid">
+        <label>Rate — Owner Occupied
+          <input type="number" name="rateOwnerOccupied" value="0.0903" min="0" step="0.0001" />
+        </label>
+        <label>Rate — Investor
+          <input type="number" name="rateInvestor" value="0.0903" min="0" step="0.0001" />
+        </label>
+        <label class="driver">Bendigo other-income shade
+          <input type="number" name="bendigoOtherIncomeShade" value="0.80" min="0" max="1" step="0.01" />
+        </label>
+        <label class="driver">ColCap other-income shade
+          <input type="number" name="colcapOtherIncomeShade" value="1.00" min="0" max="1" step="0.01" />
+        </label>
+        <label class="driver">Bendigo credit card rate (of limit)
+          <input type="number" name="bendigoCreditCardRate" value="0.038" min="0" step="0.001" />
+        </label>
+        <label class="driver">ColCap credit card rate (of limit)
+          <input type="number" name="colcapCreditCardRate" value="0.030" min="0" step="0.001" />
+        </label>
+      </div>
+      <p class="hint">HEM tables are view-only, loaded from calc_data.json (Bendigo: 15 bands; ColCap "Australia" table: 14 bands, flat $90/wk additional dependant).</p>
+    </form>
+  </section>
+
+  <section class="panel" id="results-panel" hidden>
+    <h2>Results</h2>
+    <div class="headline">
+      <div class="headline-figure">
+        <span class="label">Bendigo max borrowing</span>
+        <span class="value" id="bendigo-max">—</span>
+      </div>
+      <div class="headline-figure">
+        <span class="label">ColCap max borrowing</span>
+        <span class="value" id="colcap-max">—</span>
+      </div>
+      <div class="headline-figure variance">
+        <span class="label">Variance</span>
+        <span class="value" id="variance-value">—</span>
+        <span class="direction" id="variance-direction">—</span>
+      </div>
+    </div>
+
+    <div class="breakdown-columns">
+      <div class="breakdown-col">
+        <h3>Bendigo breakdown</h3>
+        <table class="breakdown-table" id="bendigo-breakdown"></table>
+      </div>
+      <div class="breakdown-col">
+        <h3>ColCap breakdown</h3>
+        <table class="breakdown-table" id="colcap-breakdown"></table>
+      </div>
+    </div>
+    <p class="hint">Rows highlighted in amber are the three funder-difference drivers: other-income shading, credit card assessment rate, and HEM.</p>
+  </section>
+
+  <section class="panel" id="assumptions-note">
+    <h2>Assumptions &amp; limitations</h2>
+    <ul>
+      <li>Acquisition/estimate tool: intentionally simpler than full serviceability.</li>
+      <li>No assessment-rate buffer applied (uses product rate directly) — same for both funders.</li>
+      <li>Tax = FY2026/27 resident scale; Medicare thresholds = FY2025/26 (single only) — flagged mismatch.</li>
+      <li>"Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Bendigo 80% / ColCap 100%).</li>
+      <li>Rental income is NOT separately modelled (falls in "other income").</li>
+      <li>ColCap HEM uses the single "Australia" table (Q2 2025) as a placeholder; region-based HEM not supported.</li>
+      <li>Several ColCap constants remain to be confirmed with credit policy. QMHL-vs-Homestar ColCap policy parity is an open question (owner: Scott Sommer).</li>
+    </ul>
+  </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
