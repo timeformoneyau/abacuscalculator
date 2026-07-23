@@ -109,7 +109,7 @@ export function runFunderCalc(inputs, funder, hemTable, taxBrackets, medicareCon
   const r = assessRate / 100 / 12;
   const n = Math.max(1, term) * 12;
   const factor = r === 0 ? n : (1 - Math.pow(1 + r, -n)) / r;
-  const maxBorrowing = surplus > 0 ? Math.round((surplus * factor) / 1000) * 1000 : 0;
+  const maxBorrowing = surplus > 0 ? Math.round(surplus * factor) : 0;
 
   return {
     // funder-difference drivers (highlight these in the UI)

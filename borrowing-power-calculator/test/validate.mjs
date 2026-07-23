@@ -51,14 +51,14 @@ function check(label, actual, expected, tolerancePct) {
 
 // Single, Owner Occupied, 0 deps, primaryIncome 100000, all else 0, no buffer, Single HEM
 // (Funder C on the national "Australia" table): Funder B max ~ $541,756 ; Funder C max ~
-// $547,859 ; variance ~ +1.1% (+$6,103) (wider tolerance since maxBorrowing rounds to $1,000)
+// $547,859 ; variance ~ +1.1% (+$6,103)
 {
   const inputs = baseInputs({ term: 30 });
   const result = computeBoth(inputs, NO_BUFFER_ASSUMPTIONS, data, SINGLE_HEM);
   console.log("\n--- Regression check (no buffer, matches original BUILD_SPEC math) ---");
-  check("funderBMax", result.funderBMax, 541756, 0.5);
-  check("funderCMax", result.funderCMax, 547859, 0.5);
-  check("varianceDollar", result.varianceDollar, 6103, 20);
+  check("funderBMax", result.funderBMax, 541756, 0.1);
+  check("funderCMax", result.funderCMax, 547859, 0.1);
+  check("varianceDollar", result.varianceDollar, 6103, 3);
   console.log(`variancePct: ${(result.variancePct * 100).toFixed(2)}% (expected ~+1.1%)`);
 }
 

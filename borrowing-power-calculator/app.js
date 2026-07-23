@@ -541,7 +541,7 @@ function renderNotesCard() {
       <div class="notes-line">· "Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Funder B/Funder C shading levers above).</div>
       <div class="notes-line">· Rental income is NOT separately modelled (falls in "other income").</div>
       <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band tables, Q2 2025 vintage, smoothed quantile-regression estimates). Funder B always uses its own table; the "HEM basis" selector only changes which table Funder C is assessed against — Single (national "Australia" table), Standardised (Funder B's own table, to isolate HEM's share of the variance), or Regional (14 state/city tables). Funder C's per-dependant add-on is flat $90/week except when standardised, where it inherits Funder B's band-varying add-on.</div>
-      <div class="notes-line">· Maximum borrowing = present value of the monthly surplus as a P&amp;I annuity over the loan term at the assessed rate, rounded to the nearest $1,000. No LVR, lender caps, or DTI overlays applied.</div>
+      <div class="notes-line">· Maximum borrowing = present value of the monthly surplus as a P&amp;I annuity over the loan term at the assessed rate, rounded to the nearest dollar. No LVR, lender caps, or DTI overlays applied.</div>
       <div class="notes-line">· Negative gearing, rental expense offsets, and existing mortgage repayments are out of scope for this comparison.</div>
       <div class="notes-line">· Indicative analysis only — not a credit decision tool.</div>
     </div>`
