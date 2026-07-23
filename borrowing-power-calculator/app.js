@@ -80,7 +80,7 @@ function renderInputsCard() {
             <option value="Couple" ${inp.structure === "Couple" ? "selected" : ""}>Couple</option>
           </select>
         </label>
-        <div class="field-row-2">
+        <div class="field-row-3">
           <label class="field">
             <span class="field-label">Dependants</span>
             <input class="plain-input" data-field="dependants" data-kind="int" data-max="12" value="${inp.dependants}"/>
@@ -89,15 +89,15 @@ function renderInputsCard() {
             <span class="field-label">Loan term (yrs)</span>
             <input class="plain-input" data-field="term" data-kind="int" data-max="40" value="${inp.term}"/>
           </label>
+          <label class="field">
+            <span class="field-label">HEM Figures</span>
+            <select class="plain-input" data-hem="mode">
+              <option value="standardize" ${hemSel.mode === "standardize" ? "selected" : ""}>Standardize</option>
+              <option value="regional" ${hemSel.mode === "regional" ? "selected" : ""}>Regional</option>
+              <option value="single" ${hemSel.mode === "single" ? "selected" : ""}>Single</option>
+            </select>
+          </label>
         </div>
-        <label class="field">
-          <span class="field-label">HEM Figures</span>
-          <select class="plain-input" data-hem="mode">
-            <option value="standardize" ${hemSel.mode === "standardize" ? "selected" : ""}>Standardize HEM</option>
-            <option value="regional" ${hemSel.mode === "regional" ? "selected" : ""}>Regional HEM</option>
-            <option value="single" ${hemSel.mode === "single" ? "selected" : ""}>Single HEM</option>
-          </select>
-        </label>
         ${
           hemSel.mode === "regional"
             ? `<label class="field">

@@ -101,6 +101,7 @@ button { font-family: inherit; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field-label { font: 500 11px "IBM Plex Sans", sans-serif; color: #5b6672; }
 .field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row-3 { display: grid; grid-template-columns: 0.7fr 0.9fr 1.3fr; gap: 10px; }
 .field.dim { opacity: 0.4; }
 
 select, .plain-input {
