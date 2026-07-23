@@ -1,4 +1,4 @@
-import { computeBoth, DEFAULT_ASSUMPTIONS, DEFAULT_INPUTS, CLEARED_INPUTS } from "./calc.js";
+import { computeBoth, computeContributors, DEFAULT_ASSUMPTIONS, DEFAULT_INPUTS, CLEARED_INPUTS } from "./calc.js";
 
 const root = document.getElementById("app");
 
@@ -105,55 +105,84 @@ function renderInputsCard() {
   </div>`;
 }
 
-function renderResultsZone(computed) {
+const LEVER_COLOR = { B: "#28527a", C: "#2a6e5e" };
+
+function renderResultsZone(computed, contributorsResult) {
   const { funderB: B, funderC: C, varianceDollar, variancePct, direction } = computed;
+  const leader = B.maxBorrowing === C.maxBorrowing ? null : B.maxBorrowing > C.maxBorrowing ? "B" : "C";
+
+  const badge = (who) => (leader === who ? '<span class="leader-badge">▲ HIGHER</span>' : "");
+
+  const contributorRows = contributorsResult.contributors
+    .map((c, i) => {
+      const color = c.favors ? LEVER_COLOR[c.favors] : "#a3abb4";
+      const favorsText = c.favors ? `favors Funder ${c.favors}` : "no effect";
+      return `
+      <div class="contributor-row">
+        <span class="contributor-rank">${i + 1}</span>
+        <span class="contributor-dot" style="background:${color}"></span>
+        <span class="contributor-label">${c.label}</span>
+        <span class="contributor-value">${fmtSigned(c.delta)}</span>
+        <span class="contributor-pct">${c.pctOfGap.toFixed(0)}% of gap</span>
+        <span class="contributor-favors">${favorsText}</span>
+      </div>`;
+    })
+    .join("");
+
   return `
   <div class="results-grid">
-    <div class="result-card funder-b">
+    <div class="result-card funder-b${leader === "B" ? " leader" : ""}">
       <div class="result-label-row">
         <span class="result-swatch" style="background:#28527a"></span>
         <span class="result-label">FUNDER B MAX BORROWING</span>
+        ${badge("B")}
       </div>
       <div class="result-figure">${fmtMoney(B.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${B.assessRate.toFixed(2)}% · surplus ${fmtMoney(B.surplus)}/mo</div>
     </div>
-    <div class="result-card funder-c">
+    <div class="result-card funder-c${leader === "C" ? " leader" : ""}">
       <div class="result-label-row">
         <span class="result-swatch" style="background:#2a6e5e"></span>
         <span class="result-label">FUNDER C MAX BORROWING</span>
+        ${badge("C")}
       </div>
       <div class="result-figure">${fmtMoney(C.maxBorrowing)}</div>
       <div class="result-subline">Assessed at ${C.assessRate.toFixed(2)}% · surplus ${fmtMoney(C.surplus)}/mo</div>
     </div>
   </div>
-  <div class="variance-bar">
-    <div class="variance-item">
-      <span class="variance-item-label">VARIANCE ($)</span>
-      <span class="variance-item-value">${fmtSigned(varianceDollar)}</span>
+  <div class="diff-panel">
+    <div class="diff-summary">
+      <span class="diff-summary-value">${fmtSigned(varianceDollar)}</span>
+      <span class="diff-summary-pct">(${(variancePct >= 0 ? "+" : "−") + Math.abs(variancePct * 100).toFixed(1)}%)</span>
+      <span class="diff-summary-text">${esc(direction)}</span>
     </div>
-    <div class="variance-item">
-      <span class="variance-item-label">VARIANCE (%)</span>
-      <span class="variance-item-value">${(variancePct >= 0 ? "+" : "−") + Math.abs(variancePct * 100).toFixed(1)}%</span>
+    <div class="diff-contributors">
+      <div class="diff-contributors-title">TOP CONTRIBUTORS TO THE GAP</div>
+      ${contributorRows}
+      <div class="diff-contributors-note">Estimated by swapping one policy setting at a time from Funder B's baseline; may not sum exactly to the total gap due to interaction effects.</div>
     </div>
-    <div class="variance-divider"></div>
-    <div class="variance-direction">${esc(direction)}</div>
   </div>`;
 }
 
+// polarity: "higher" (default) means a bigger Funder C value is favourable (income-type
+// rows); "lower" means a smaller Funder C value is favourable (cost/expense-type rows) —
+// e.g. lower HEM or living expenses means MORE borrowing power, so it should read as green
+// even though the $ delta itself is negative.
 function diffCell(bVal, cVal, opts) {
   const o = opts || {};
   if (o.noDiff) return `<span class="row-diff"></span>`;
   const raw = o.same ? 0 : cVal - bVal;
   if (Math.abs(raw) < 0.5) return `<span class="row-diff zero">—</span>`;
-  const cls = raw > 0 ? "pos" : "neg";
+  const isGood = o.polarity === "lower" ? raw < 0 : raw > 0;
+  const cls = isGood ? "pos" : "neg";
   return `<span class="row-diff ${cls}">${fmtSigned(raw)}</span>`;
 }
 
 function breakdownRow(opts) {
-  const { label, bDisplay, cDisplay, driver, note, total, bVal, cVal, noDiff, same } = opts;
-  const rowClass = driver ? "driver" : total ? "total" : "";
+  const { label, bDisplay, cDisplay, driver, note, total, bold, bVal, cVal, noDiff, same, polarity } = opts;
+  const classes = [driver ? "driver" : "", total ? "total" : "", bold ? "bold" : ""].filter(Boolean).join(" ");
   return `
-    <div class="breakdown-row-grid breakdown-row ${rowClass}">
+    <div class="breakdown-row-grid breakdown-row ${classes}">
       <div class="row-label-col">
         <div class="row-label-line">
           <span class="row-label">${label}</span>
@@ -163,7 +192,7 @@ function breakdownRow(opts) {
       </div>
       <span class="row-value">${bDisplay}</span>
       <span class="row-value">${cDisplay}</span>
-      ${diffCell(bVal, cVal, { noDiff, same })}
+      ${diffCell(bVal, cVal, { noDiff, same, polarity })}
     </div>`;
 }
 
@@ -192,19 +221,21 @@ function renderBreakdownCard(computed) {
       label: "Income tax (p.a.)",
       bDisplay: "−" + fmtMoney(B.incomeTaxTotal),
       cDisplay: "−" + fmtMoney(C.incomeTaxTotal),
-      bVal: -B.incomeTaxTotal,
-      cVal: -C.incomeTaxTotal,
+      bVal: B.incomeTaxTotal,
+      cVal: C.incomeTaxTotal,
+      polarity: "lower",
       note: "FY2026/27 resident scale, per applicant",
     }),
     breakdownRow({
       label: "Medicare levy (p.a.)",
       bDisplay: "−" + fmtMoney(B.medicareTotal),
       cDisplay: "−" + fmtMoney(C.medicareTotal),
-      bVal: -B.medicareTotal,
-      cVal: -C.medicareTotal,
+      bVal: B.medicareTotal,
+      cVal: C.medicareTotal,
+      polarity: "lower",
       note: "FY2025/26 thresholds (single scale), 10% shade-in band",
     }),
-    breakdownRow({ label: "Net income (p.a.)", bDisplay: fmtMoney(B.netAnnual), cDisplay: fmtMoney(C.netAnnual), bVal: B.netAnnual, cVal: C.netAnnual }),
+    breakdownRow({ label: "Net income (p.a.)", bDisplay: fmtMoney(B.netAnnual), cDisplay: fmtMoney(C.netAnnual), bVal: B.netAnnual, cVal: C.netAnnual, bold: true }),
     breakdownRow({ label: "Net income (monthly)", bDisplay: fmtMoney(B.netMonthly), cDisplay: fmtMoney(C.netMonthly), bVal: B.netMonthly, cVal: C.netMonthly, total: true }),
     breakdownRow({
       label: "HEM benchmark (monthly)",
@@ -212,6 +243,7 @@ function renderBreakdownCard(computed) {
       cDisplay: fmtMoney(C.hemMonthly),
       bVal: B.hemMonthly,
       cVal: C.hemMonthly,
+      polarity: "lower",
       driver: true,
       note: `Funder B band ${hemBBand} · Funder C band ${hemCBand} — ${inp.structure}, ${inp.dependants} dependant(s)`,
     }),
@@ -221,6 +253,7 @@ function renderBreakdownCard(computed) {
       cDisplay: fmtMoney(C.livingUsed),
       bVal: B.livingUsed,
       cVal: C.livingUsed,
+      polarity: "lower",
       note: `Higher of HEM and declared ${fmtMoney(inp.livingExpenses)} — ${bindsB ? "HEM binds" : "declared binds"}`,
     }),
     breakdownRow({
@@ -229,6 +262,7 @@ function renderBreakdownCard(computed) {
       cDisplay: fmtMoney(C.cc),
       bVal: B.cc,
       cVal: C.cc,
+      polarity: "lower",
       driver: true,
       note: `Limit ${fmtMoney(inp.ccLimit)} × Funder B ${a.fbCC}% vs Funder C ${a.fcCC}%`,
     }),
@@ -237,11 +271,13 @@ function renderBreakdownCard(computed) {
       label: "Total monthly commitments",
       bDisplay: "−" + fmtMoney(B.commitments),
       cDisplay: "−" + fmtMoney(C.commitments),
-      bVal: -B.commitments,
-      cVal: -C.commitments,
+      bVal: B.commitments,
+      cVal: C.commitments,
+      polarity: "lower",
       total: true,
+      bold: true,
     }),
-    breakdownRow({ label: "Net available income (monthly)", bDisplay: fmtMoney(B.surplus), cDisplay: fmtMoney(C.surplus), bVal: B.surplus, cVal: C.surplus, total: true }),
+    breakdownRow({ label: "Net available income (monthly)", bDisplay: fmtMoney(B.surplus), cDisplay: fmtMoney(C.surplus), bVal: B.surplus, cVal: C.surplus, total: true, bold: true }),
     breakdownRow({
       label: `Assessment rate (rate + ${a.buffer.toFixed(2)}% buffer)`,
       bDisplay: B.assessRate.toFixed(2) + "%",
@@ -249,7 +285,7 @@ function renderBreakdownCard(computed) {
       noDiff: true,
       note: `${inp.loanType === "OO" ? "Owner Occupied" : "Investor"} rate over ${inp.term} years P&amp;I`,
     }),
-    breakdownRow({ label: "Maximum borrowing", bDisplay: fmtMoney(B.maxBorrowing), cDisplay: fmtMoney(C.maxBorrowing), bVal: B.maxBorrowing, cVal: C.maxBorrowing, total: true }),
+    breakdownRow({ label: "Maximum borrowing", bDisplay: fmtMoney(B.maxBorrowing), cDisplay: fmtMoney(C.maxBorrowing), bVal: B.maxBorrowing, cVal: C.maxBorrowing, total: true, bold: true }),
   ].join("");
 
   return `
@@ -447,7 +483,15 @@ function renderNotesCard() {
 function render() {
   if (!data) return;
   const computed = computeBoth(state.inp, state.a, data);
-  root.innerHTML = [renderInputsCard(), renderResultsZone(computed), renderBreakdownCard(computed), renderAssumptionsCard(), renderHemCard(computed), renderNotesCard()].join("");
+  const contributorsResult = computeContributors(state.inp, state.a, data);
+  root.innerHTML = [
+    renderInputsCard(),
+    renderResultsZone(computed, contributorsResult),
+    renderBreakdownCard(computed),
+    renderAssumptionsCard(),
+    renderHemCard(computed),
+    renderNotesCard(),
+  ].join("");
 }
 
 function onChange(e) {

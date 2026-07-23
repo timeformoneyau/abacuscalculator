@@ -163,6 +163,56 @@ export function computeBoth(inputs, assumptions, data) {
   return { funderB, funderC, funderBMax, funderCMax, varianceDollar, variancePct, direction };
 }
 
+// Attributes the total Funder B vs Funder C variance to the individual policy levers that
+// can differ between funders (other-income shading, HEM table, credit-card rate, interest
+// rate). Uses a one-at-a-time swap from Funder B's baseline: for each lever, recompute max
+// borrowing with only that lever replaced by Funder C's value, holding everything else at
+// Funder B's settings. The resulting delta is that lever's isolated contribution. Because
+// max borrowing is a nonlinear function of these inputs, the deltas won't sum exactly to
+// the total variance (interaction effects) — this is a standard one-factor-at-a-time bridge,
+// not an exact decomposition.
+export function computeContributors(inputs, assumptions, data) {
+  const fbConfig = {
+    otherIncomeShade: assumptions.fbShade / 100,
+    creditCardRate: assumptions.fbCC / 100,
+    rateOwnerOccupied: assumptions.fbRateOO,
+    rateInvestor: assumptions.fbRateINV,
+    buffer: assumptions.buffer,
+  };
+  const fcConfig = {
+    otherIncomeShade: assumptions.fcShade / 100,
+    creditCardRate: assumptions.fcCC / 100,
+    rateOwnerOccupied: assumptions.fcRateOO,
+    rateInvestor: assumptions.fcRateINV,
+    buffer: assumptions.buffer,
+  };
+
+  const baselineMax = runFunderCalc(inputs, fbConfig, data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
+  const totalMax = runFunderCalc(inputs, fcConfig, data.hem_funder_c, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
+  const totalVariance = totalMax - baselineMax;
+
+  const swapMax = (overrides, hemTable) => runFunderCalc(inputs, { ...fbConfig, ...overrides }, hemTable || data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
+
+  const levers = [
+    { key: "shade", label: "Other-income shading", delta: swapMax({ otherIncomeShade: fcConfig.otherIncomeShade }) - baselineMax },
+    { key: "hem", label: "HEM benchmark", delta: swapMax({}, data.hem_funder_c) - baselineMax },
+    { key: "cc", label: "Credit card rate", delta: swapMax({ creditCardRate: fcConfig.creditCardRate }) - baselineMax },
+    { key: "rate", label: "Interest rate", delta: swapMax({ rateOwnerOccupied: fcConfig.rateOwnerOccupied, rateInvestor: fcConfig.rateInvestor }) - baselineMax },
+  ];
+
+  const totalVarianceAbs = Math.abs(totalVariance);
+  const contributors = levers
+    .map((l) => ({
+      ...l,
+      pctOfGap: totalVarianceAbs === 0 ? 0 : (Math.abs(l.delta) / totalVarianceAbs) * 100,
+      favors: l.delta > 0 ? "C" : l.delta < 0 ? "B" : null,
+    }))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 3);
+
+  return { totalVariance, contributors };
+}
+
 export const DEFAULT_ASSUMPTIONS = {
   fbRateOO: 6.19,
   fbRateINV: 6.54,

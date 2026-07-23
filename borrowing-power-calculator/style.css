@@ -130,21 +130,44 @@ select, .plain-input {
 
 /* Zone 2: results */
 .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.result-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 22px 24px 18px; border-top: 3px solid transparent; }
+.result-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 22px 24px 18px; border-top: 3px solid transparent; transition: border-top-width 0.15s ease; }
 .result-card.funder-b { border-top-color: #28527a; }
 .result-card.funder-c { border-top-color: #2a6e5e; }
-.result-label-row { display: flex; align-items: center; gap: 8px; }
+.result-card.leader { border-top-width: 4px; box-shadow: 0 1px 3px rgba(22, 32, 43, 0.08); }
+.result-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .result-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .result-label { font: 600 12px "IBM Plex Sans", sans-serif; letter-spacing: 0.08em; color: #3d4854; }
+.leader-badge {
+  margin-left: auto;
+  font: 700 10px "IBM Plex Sans", sans-serif;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  background: #3d4854;
+  border-radius: 3px;
+  padding: 3px 7px;
+}
+.result-card.funder-b .leader-badge { background: #28527a; }
+.result-card.funder-c .leader-badge { background: #2a6e5e; }
 .result-figure { font: 600 44px/1.1 "IBM Plex Mono", monospace; letter-spacing: -0.02em; margin-top: 10px; color: #16202b; }
 .result-subline { font: 400 12px "IBM Plex Sans", sans-serif; color: #8a939c; margin-top: 8px; }
 
-.variance-bar { background: #1f2933; border-radius: 6px; padding: 14px 24px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
-.variance-item { display: flex; flex-direction: column; gap: 2px; }
-.variance-item-label { font: 500 10px "IBM Plex Sans", sans-serif; letter-spacing: 0.1em; color: #8fa0b0; }
-.variance-item-value { font: 600 22px "IBM Plex Mono", monospace; color: #ffffff; }
-.variance-divider { width: 1px; align-self: stretch; background: #39434d; }
-.variance-direction { font: 500 15px "IBM Plex Sans", sans-serif; color: #e6ebf0; }
+/* Differences panel (replaces the old dark variance bar) */
+.diff-panel { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 16px 24px; }
+.diff-summary { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.diff-summary-value { font: 600 24px "IBM Plex Mono", monospace; letter-spacing: -0.01em; color: #16202b; }
+.diff-summary-pct { font: 500 15px "IBM Plex Mono", monospace; color: #5b6672; }
+.diff-summary-text { font: 400 13px "IBM Plex Sans", sans-serif; color: #5b6672; }
+
+.diff-contributors { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eceff2; }
+.diff-contributors-title { font: 600 10px "IBM Plex Sans", sans-serif; letter-spacing: 0.1em; color: #a3abb4; margin-bottom: 6px; }
+.contributor-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; flex-wrap: wrap; }
+.contributor-rank { font: 600 11px "IBM Plex Mono", monospace; color: #a3abb4; width: 14px; }
+.contributor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.contributor-label { font: 500 13px "IBM Plex Sans", sans-serif; color: #2a333d; min-width: 160px; }
+.contributor-value { font: 600 13px "IBM Plex Mono", monospace; color: #16202b; }
+.contributor-pct { font: 400 12px "IBM Plex Sans", sans-serif; color: #8a939c; }
+.contributor-favors { font: 400 11px "IBM Plex Sans", sans-serif; color: #a3abb4; margin-left: auto; }
+.diff-contributors-note { font: 400 10.5px "IBM Plex Sans", sans-serif; color: #b4bac0; margin-top: 6px; }
 
 /* Zone 3: breakdown table */
 .breakdown-row-grid { display: grid; grid-template-columns: minmax(240px, 1fr) 170px 170px 190px; gap: 0; }
@@ -157,6 +180,7 @@ select, .plain-input {
 .breakdown-row { padding: 9px 16px; border-bottom: 1px solid #eef1f3; align-items: center; background: #fff; }
 .breakdown-row.driver { background: #fdf8ec; }
 .breakdown-row.total { background: #f6f8fa; border-top: 1px solid #dfe3e8; }
+.breakdown-row.bold .row-label, .breakdown-row.bold .row-value { font-weight: 700; }
 
 .row-label-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .row-label-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
