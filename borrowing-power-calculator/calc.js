@@ -3,8 +3,21 @@
 // is an estimate/analysis tool, not a settlement-grade ledger.
 //
 // Tax brackets and HEM tables are the real production data (calc_data.json:
-// tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_funder_c) — not the
+// tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_regional) — not the
 // illustrative placeholder numbers from the design mockup.
+//
+// Funder B always uses its own HEM table (hem_funder_b). Funder C's HEM table is
+// selectable via the "HEM Figures" mode:
+//   - "single"      Funder C uses the single national ("Australia") regional table.
+//   - "standardize" Funder C uses Funder B's own table, to isolate HEM's contribution
+//                    to the variance from every other policy difference.
+//   - "regional"    Funder C uses the selected state/region table from hem_regional.
+export function resolveFunderCHemTable(hemMode, hemRegion, data) {
+  if (hemMode === "standardize") return data.hem_funder_b;
+  const regionName = hemMode === "regional" ? hemRegion : "Australia";
+  const region = data.hem_regional.regions[regionName];
+  return { band_lower_bounds: data.hem_regional.band_lower_bounds, rows: region.rows };
+}
 
 export function incomeTax(taxable, brackets) {
   if (taxable <= 0) return 0;
@@ -131,8 +144,9 @@ export function runFunderCalc(inputs, funder, hemTable, taxBrackets, medicareCon
 // assumptions: { fbRateOO, fbRateINV, fcRateOO, fcRateINV, fbCC, fcCC, fbShade, fcShade,
 //                buffer } — all as plain percentage numbers (e.g. fbRateOO: 6.19 means
 //                6.19% p.a.), matching the assumption panel's editable fields.
-// data: { tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_funder_c }
-export function computeBoth(inputs, assumptions, data) {
+// data: { tax_brackets_FY2627, medicare_FY2526, hem_funder_b, hem_regional }
+// hemSelection: { mode: "single"|"standardize"|"regional", region }
+export function computeBoth(inputs, assumptions, data, hemSelection) {
   const funderBConfig = {
     otherIncomeShade: assumptions.fbShade / 100,
     creditCardRate: assumptions.fbCC / 100,
@@ -147,9 +161,10 @@ export function computeBoth(inputs, assumptions, data) {
     rateInvestor: assumptions.fcRateINV,
     buffer: assumptions.buffer,
   };
+  const funderCHemTable = resolveFunderCHemTable(hemSelection.mode, hemSelection.region, data);
 
   const funderB = runFunderCalc(inputs, funderBConfig, data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526);
-  const funderC = runFunderCalc(inputs, funderCConfig, data.hem_funder_c, data.tax_brackets_FY2627, data.medicare_FY2526);
+  const funderC = runFunderCalc(inputs, funderCConfig, funderCHemTable, data.tax_brackets_FY2627, data.medicare_FY2526);
 
   const funderBMax = funderB.maxBorrowing;
   const funderCMax = funderC.maxBorrowing;
@@ -171,7 +186,7 @@ export function computeBoth(inputs, assumptions, data) {
 // max borrowing is a nonlinear function of these inputs, the deltas won't sum exactly to
 // the total variance (interaction effects) — this is a standard one-factor-at-a-time bridge,
 // not an exact decomposition.
-export function computeContributors(inputs, assumptions, data) {
+export function computeContributors(inputs, assumptions, data, hemSelection) {
   const fbConfig = {
     otherIncomeShade: assumptions.fbShade / 100,
     creditCardRate: assumptions.fbCC / 100,
@@ -186,16 +201,17 @@ export function computeContributors(inputs, assumptions, data) {
     rateInvestor: assumptions.fcRateINV,
     buffer: assumptions.buffer,
   };
+  const funderCHemTable = resolveFunderCHemTable(hemSelection.mode, hemSelection.region, data);
 
   const baselineMax = runFunderCalc(inputs, fbConfig, data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
-  const totalMax = runFunderCalc(inputs, fcConfig, data.hem_funder_c, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
+  const totalMax = runFunderCalc(inputs, fcConfig, funderCHemTable, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
   const totalVariance = totalMax - baselineMax;
 
   const swapMax = (overrides, hemTable) => runFunderCalc(inputs, { ...fbConfig, ...overrides }, hemTable || data.hem_funder_b, data.tax_brackets_FY2627, data.medicare_FY2526).maxBorrowing;
 
   const levers = [
     { key: "shade", label: "Other-income shading", delta: swapMax({ otherIncomeShade: fcConfig.otherIncomeShade }) - baselineMax },
-    { key: "hem", label: "HEM benchmark", delta: swapMax({}, data.hem_funder_c) - baselineMax },
+    { key: "hem", label: "HEM benchmark", delta: swapMax({}, funderCHemTable) - baselineMax },
     { key: "cc", label: "Credit card rate", delta: swapMax({ creditCardRate: fcConfig.creditCardRate }) - baselineMax },
     { key: "rate", label: "Interest rate", delta: swapMax({ rateOwnerOccupied: fcConfig.rateOwnerOccupied, rateInvestor: fcConfig.rateInvestor }) - baselineMax },
   ];
@@ -212,6 +228,8 @@ export function computeContributors(inputs, assumptions, data) {
 
   return { totalVariance, contributors };
 }
+
+export const DEFAULT_HEM_SELECTION = { mode: "single", region: "Australia" };
 
 export const DEFAULT_ASSUMPTIONS = {
   fbRateOO: 6.19,

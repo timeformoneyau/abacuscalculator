@@ -1,4 +1,4 @@
-import { computeBoth, computeContributors, DEFAULT_ASSUMPTIONS, DEFAULT_INPUTS, CLEARED_INPUTS } from "./calc.js";
+import { computeBoth, computeContributors, resolveFunderCHemTable, DEFAULT_ASSUMPTIONS, DEFAULT_INPUTS, CLEARED_INPUTS, DEFAULT_HEM_SELECTION } from "./calc.js";
 
 const root = document.getElementById("app");
 
@@ -6,6 +6,9 @@ let data = null;
 const state = {
   inp: { ...DEFAULT_INPUTS },
   a: { ...DEFAULT_ASSUMPTIONS },
+  // HEM Figures mode — a methodology choice, not customer data, so "Clear all" leaves it
+  // alone (same treatment as the assumption levers).
+  hemSel: { ...DEFAULT_HEM_SELECTION },
   open: { breakdown: true, assum: false, hem: false, notes: false },
 };
 
@@ -42,9 +45,17 @@ function moneyField(field, value, disabled) {
     </label>`;
 }
 
+const HEM_MODE_LABELS = {
+  standardize: "Standardize HEM",
+  regional: "Regional HEM",
+  single: "Single HEM",
+};
+
 function renderInputsCard() {
-  const { inp } = state;
+  const { inp, hemSel } = state;
   const isSingle = inp.structure === "Single";
+  const regionNames = data ? Object.keys(data.hem_regional.regions) : [];
+
   return `
   <div class="card">
     <div class="card-header">
@@ -79,6 +90,25 @@ function renderInputsCard() {
             <input class="plain-input" data-field="term" data-kind="int" data-max="40" value="${inp.term}"/>
           </label>
         </div>
+        <label class="field">
+          <span class="field-label">HEM Figures</span>
+          <select class="plain-input" data-hem="mode">
+            <option value="standardize" ${hemSel.mode === "standardize" ? "selected" : ""}>Standardize HEM</option>
+            <option value="regional" ${hemSel.mode === "regional" ? "selected" : ""}>Regional HEM</option>
+            <option value="single" ${hemSel.mode === "single" ? "selected" : ""}>Single HEM</option>
+          </select>
+        </label>
+        ${
+          hemSel.mode === "regional"
+            ? `<label class="field">
+          <span class="field-label">Region (Funder C)</span>
+          <select class="plain-input" data-hem="region">
+            ${regionNames.map((name) => `<option value="${name}" ${hemSel.region === name ? "selected" : ""}>${name}</option>`).join("")}
+          </select>
+        </label>`
+            : ""
+        }
+        <div class="field-hint">Funder B always uses its own table. HEM Figures only changes which table Funder C is assessed against — ${HEM_MODE_LABELS[hemSel.mode]}.</div>
       </div>
 
       <div class="inputs-col">
@@ -212,14 +242,20 @@ function breakdownRow(opts) {
     </div>`;
 }
 
-function renderBreakdownCard(computed) {
-  const { inp, a } = state;
+function renderBreakdownCard(computed, fcHemTable) {
+  const { inp, a, hemSel } = state;
   const { funderB: B, funderC: C } = computed;
   const allOpen = state.open.breakdown && state.open.assum && state.open.hem && state.open.notes;
 
   const hemBBand = bandLabel(data.hem_funder_b, B.hemBandIndex);
-  const hemCBand = bandLabel(data.hem_funder_c, C.hemBandIndex);
+  const hemCBand = bandLabel(fcHemTable, C.hemBandIndex);
   const bindsB = B.hemBinds || C.hemBinds;
+  const hemModeNote =
+    hemSel.mode === "standardize"
+      ? "Funder C standardized to Funder B's table"
+      : hemSel.mode === "regional"
+        ? `Funder C on the ${hemSel.region} regional table`
+        : "Funder C on the single national (Australia) table";
 
   const rows = [
     breakdownRow({ label: "Base salary income (gross p.a.)", bDisplay: fmtMoney(B.baseIncome), cDisplay: fmtMoney(C.baseIncome), bVal: B.baseIncome, cVal: C.baseIncome }),
@@ -261,7 +297,7 @@ function renderBreakdownCard(computed) {
       cVal: C.hemMonthly,
       polarity: "lower",
       driver: true,
-      note: `Funder B band ${hemBBand} · Funder C band ${hemCBand} — ${inp.structure}, ${inp.dependants} dependant(s)`,
+      note: `Funder B band ${hemBBand} · Funder C band ${hemCBand} — ${inp.structure}, ${inp.dependants} dependant(s) · ${hemModeNote}`,
     }),
     breakdownRow({
       label: "Living expenses applied (monthly)",
@@ -417,12 +453,15 @@ function hemRows(hemTable, structure, activeIdx) {
     .join("");
 }
 
-function renderHemCard(computed) {
-  const { inp } = state;
+function renderHemCard(computed, fcHemTable) {
+  const { inp, hemSel } = state;
   const { funderB: B, funderC: C } = computed;
   const depKey = inp.structure === "Couple" ? "couple_additional" : "single_additional";
   const fbDepMonthly = (data.hem_funder_b.rows[depKey][B.hemBandIndex] * 52) / 12;
-  const fcDepMonthly = (data.hem_funder_c.rows[depKey][C.hemBandIndex] * 52) / 12;
+  const fcDepMonthly = (fcHemTable.rows[depKey][C.hemBandIndex] * 52) / 12;
+  const fcDepDesc = hemSel.mode === "standardize" ? "varies by band, same table as Funder B" : "flat $90/wk";
+  const fcTitleSuffix =
+    hemSel.mode === "standardize" ? " (standardized to Funder B)" : hemSel.mode === "regional" ? ` (${hemSel.region})` : " (Australia, single national table)";
 
   return `
   <div class="card">
@@ -452,8 +491,8 @@ function renderHemCard(computed) {
       <div class="hem-col">
         <div class="hem-col-header">
           <span class="hem-swatch" style="background:#2a6e5e"></span>
-          <span class="hem-col-title">FUNDER C HEM</span>
-          <span class="hem-col-desc">+ ${fmtMoney(fcDepMonthly)}/mo per dependant (flat $90/wk)</span>
+          <span class="hem-col-title">FUNDER C HEM${fcTitleSuffix}</span>
+          <span class="hem-col-desc">+ ${fmtMoney(fcDepMonthly)}/mo per dependant (${fcDepDesc})</span>
         </div>
         <div class="hem-table-wrap">
           <div class="hem-head-row">
@@ -461,7 +500,7 @@ function renderHemCard(computed) {
             <span class="hem-head-cell right">SINGLE</span>
             <span class="hem-head-cell right">COUPLE</span>
           </div>
-          ${hemRows(data.hem_funder_c, inp.structure, C.hemBandIndex)}
+          ${hemRows(fcHemTable, inp.structure, C.hemBandIndex)}
         </div>
       </div>
     </div>
@@ -486,7 +525,7 @@ function renderNotesCard() {
       <div class="notes-line">· Tax = FY2026/27 resident marginal scale; Medicare = FY2025/26 thresholds with the 10% shade-in band (single scale only) — flagged mismatch.</div>
       <div class="notes-line">· "Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Funder B/Funder C shading levers above).</div>
       <div class="notes-line">· Rental income is NOT separately modelled (falls in "other income").</div>
-      <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band "Australia" table, Q2 2025 placeholder). Funder C's per-dependant add-on is flat $90/week; Funder B's varies by band.</div>
+      <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band tables, Q2 2025 vintage, smoothed quantile-regression estimates). Funder B always uses its own table; the "HEM Figures" selector only changes which table Funder C is assessed against — Single (national "Australia" table), Standardize (Funder B's own table, to isolate HEM's share of the variance), or Regional (14 state/city tables). Funder C's per-dependant add-on is flat $90/week except when standardized, where it inherits Funder B's band-varying add-on.</div>
       <div class="notes-line">· Maximum borrowing = present value of the monthly surplus as a P&amp;I annuity over the loan term at the assessed rate, rounded to the nearest $1,000. No LVR, lender caps, or DTI overlays applied.</div>
       <div class="notes-line">· Negative gearing, rental expense offsets, and existing mortgage repayments are out of scope for this comparison.</div>
       <div class="notes-line">· Indicative analysis only — not a credit decision tool.</div>
@@ -498,14 +537,15 @@ function renderNotesCard() {
 
 function render() {
   if (!data) return;
-  const computed = computeBoth(state.inp, state.a, data);
-  const contributorsResult = computeContributors(state.inp, state.a, data);
+  const computed = computeBoth(state.inp, state.a, data, state.hemSel);
+  const contributorsResult = computeContributors(state.inp, state.a, data, state.hemSel);
+  const fcHemTable = resolveFunderCHemTable(state.hemSel.mode, state.hemSel.region, data);
   root.innerHTML = [
     renderInputsCard(),
     renderResultsZone(computed, contributorsResult),
-    renderBreakdownCard(computed),
+    renderBreakdownCard(computed, fcHemTable),
     renderAssumptionsCard(),
-    renderHemCard(computed),
+    renderHemCard(computed, fcHemTable),
     renderNotesCard(),
   ].join("");
 }
@@ -530,6 +570,18 @@ function onChange(e) {
 
   if (t.dataset.assum) {
     state.a[t.dataset.assum] = parsePercent(t.value);
+    render();
+    return;
+  }
+
+  if (t.dataset.hem === "mode") {
+    state.hemSel.mode = t.value;
+    if (t.value === "regional" && !state.hemSel.region) state.hemSel.region = "Australia";
+    render();
+    return;
+  }
+  if (t.dataset.hem === "region") {
+    state.hemSel.region = t.value;
     render();
   }
 }
