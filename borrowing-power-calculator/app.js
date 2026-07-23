@@ -6,8 +6,8 @@ let data = null;
 const state = {
   inp: { ...DEFAULT_INPUTS },
   a: { ...DEFAULT_ASSUMPTIONS },
-  // HEM Figures mode — a methodology choice, not customer data, so "Clear all" leaves it
-  // alone (same treatment as the assumption levers).
+  // HEM basis — a customer-scenario input (lives with the inputs, not the assumption
+  // levers), so "Clear all" resets it back to Single HEM / Australia.
   hemSel: { ...DEFAULT_HEM_SELECTION },
   open: { breakdown: true, assum: false, hem: false, notes: false },
 };
@@ -45,11 +45,15 @@ function moneyField(field, value, disabled) {
     </label>`;
 }
 
-const HEM_MODE_LABELS = {
-  standardize: "Standardize HEM",
-  regional: "Regional HEM",
-  single: "Single HEM",
-};
+function hemBasisNote(hemSel) {
+  if (hemSel.mode === "standardize") {
+    return "Both funders assessed on Funder B's HEM table — isolates the HEM effect, so any remaining variance comes from the other levers.";
+  }
+  if (hemSel.mode === "regional") {
+    return `Funder C assessed on the ${hemSel.region} regional HEM table. Australia matches the national table. Funder B always uses its own table.`;
+  }
+  return "Funder C assessed on its single national HEM table (default). Funder B always uses its own table.";
+}
 
 function renderInputsCard() {
   const { inp, hemSel } = state;
@@ -80,7 +84,7 @@ function renderInputsCard() {
             <option value="Couple" ${inp.structure === "Couple" ? "selected" : ""}>Couple</option>
           </select>
         </label>
-        <div class="field-row-3">
+        <div class="field-row-2">
           <label class="field">
             <span class="field-label">Dependants</span>
             <input class="plain-input" data-field="dependants" data-kind="int" data-max="12" value="${inp.dependants}"/>
@@ -89,26 +93,7 @@ function renderInputsCard() {
             <span class="field-label">Loan term (yrs)</span>
             <input class="plain-input" data-field="term" data-kind="int" data-max="40" value="${inp.term}"/>
           </label>
-          <label class="field">
-            <span class="field-label">HEM Figures</span>
-            <select class="plain-input" data-hem="mode">
-              <option value="standardize" ${hemSel.mode === "standardize" ? "selected" : ""}>Standardize</option>
-              <option value="regional" ${hemSel.mode === "regional" ? "selected" : ""}>Regional</option>
-              <option value="single" ${hemSel.mode === "single" ? "selected" : ""}>Single</option>
-            </select>
-          </label>
         </div>
-        ${
-          hemSel.mode === "regional"
-            ? `<label class="field">
-          <span class="field-label">Region (Funder C)</span>
-          <select class="plain-input" data-hem="region">
-            ${regionNames.map((name) => `<option value="${name}" ${hemSel.region === name ? "selected" : ""}>${name}</option>`).join("")}
-          </select>
-        </label>`
-            : ""
-        }
-        <div class="field-hint">Funder B always uses its own table. HEM Figures only changes which table Funder C is assessed against — ${HEM_MODE_LABELS[hemSel.mode]}.</div>
       </div>
 
       <div class="inputs-col">
@@ -131,6 +116,32 @@ function renderInputsCard() {
         </div>
         <div class="field-hint">Higher of declared expenses and funder HEM is applied.</div>
       </div>
+    </div>
+    <div class="hem-basis-strip">
+      <div class="hem-basis-controls">
+        <span class="hem-basis-title">HEM BASIS — CHANGES FUNDER C ONLY</span>
+        <div class="hem-basis-row">
+          <label class="field">
+            <span class="field-label">HEM figures</span>
+            <select class="plain-input hem-basis-select" data-hem="mode">
+              <option value="single" ${hemSel.mode === "single" ? "selected" : ""}>Single HEM</option>
+              <option value="standardize" ${hemSel.mode === "standardize" ? "selected" : ""}>Standardised HEM</option>
+              <option value="regional" ${hemSel.mode === "regional" ? "selected" : ""}>Regional HEM</option>
+            </select>
+          </label>
+          ${
+            hemSel.mode === "regional"
+              ? `<label class="field">
+            <span class="field-label">Region</span>
+            <select class="plain-input hem-basis-select" data-hem="region">
+              ${regionNames.map((name) => `<option value="${name}" ${hemSel.region === name ? "selected" : ""}>${name}</option>`).join("")}
+            </select>
+          </label>`
+              : ""
+          }
+        </div>
+      </div>
+      <div class="hem-basis-note">${hemBasisNote(hemSel)}</div>
     </div>
   </div>`;
 }
@@ -252,7 +263,7 @@ function renderBreakdownCard(computed, fcHemTable) {
   const bindsB = B.hemBinds || C.hemBinds;
   const hemModeNote =
     hemSel.mode === "standardize"
-      ? "Funder C standardized to Funder B's table"
+      ? "Funder C standardised to Funder B's table"
       : hemSel.mode === "regional"
         ? `Funder C on the ${hemSel.region} regional table`
         : "Funder C on the single national (Australia) table";
@@ -461,7 +472,11 @@ function renderHemCard(computed, fcHemTable) {
   const fcDepMonthly = (fcHemTable.rows[depKey][C.hemBandIndex] * 52) / 12;
   const fcDepDesc = hemSel.mode === "standardize" ? "varies by band, same table as Funder B" : "flat $90/wk";
   const fcTitleSuffix =
-    hemSel.mode === "standardize" ? " (standardized to Funder B)" : hemSel.mode === "regional" ? ` (${hemSel.region})` : " (Australia, single national table)";
+    hemSel.mode === "standardize"
+      ? " — standardised (Funder B table)"
+      : hemSel.mode === "regional"
+        ? ` — regional: ${hemSel.region}`
+        : " — single national";
 
   return `
   <div class="card">
@@ -525,7 +540,7 @@ function renderNotesCard() {
       <div class="notes-line">· Tax = FY2026/27 resident marginal scale; Medicare = FY2025/26 thresholds with the 10% shade-in band (single scale only) — flagged mismatch.</div>
       <div class="notes-line">· "Other income" is a single lumped field; real policy shades by income type. Modelled as the variable-income treatment (Funder B/Funder C shading levers above).</div>
       <div class="notes-line">· Rental income is NOT separately modelled (falls in "other income").</div>
-      <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band tables, Q2 2025 vintage, smoothed quantile-regression estimates). Funder B always uses its own table; the "HEM Figures" selector only changes which table Funder C is assessed against — Single (national "Australia" table), Standardize (Funder B's own table, to isolate HEM's share of the variance), or Regional (14 state/city tables). Funder C's per-dependant add-on is flat $90/week except when standardized, where it inherits Funder B's band-varying add-on.</div>
+      <div class="notes-line">· HEM tables are each funder's full published band table (Funder B 15 bands; Funder C 14-band tables, Q2 2025 vintage, smoothed quantile-regression estimates). Funder B always uses its own table; the "HEM basis" selector only changes which table Funder C is assessed against — Single (national "Australia" table), Standardised (Funder B's own table, to isolate HEM's share of the variance), or Regional (14 state/city tables). Funder C's per-dependant add-on is flat $90/week except when standardised, where it inherits Funder B's band-varying add-on.</div>
       <div class="notes-line">· Maximum borrowing = present value of the monthly surplus as a P&amp;I annuity over the loan term at the assessed rate, rounded to the nearest $1,000. No LVR, lender caps, or DTI overlays applied.</div>
       <div class="notes-line">· Negative gearing, rental expense offsets, and existing mortgage repayments are out of scope for this comparison.</div>
       <div class="notes-line">· Indicative analysis only — not a credit decision tool.</div>
@@ -590,6 +605,7 @@ function onClick(e) {
   const clearBtn = e.target.closest('[data-action="clear-all"]');
   if (clearBtn) {
     state.inp = { ...CLEARED_INPUTS };
+    state.hemSel = { ...DEFAULT_HEM_SELECTION };
     render();
     return;
   }

@@ -101,7 +101,6 @@ button { font-family: inherit; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field-label { font: 500 11px "IBM Plex Sans", sans-serif; color: #5b6672; }
 .field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.field-row-3 { display: grid; grid-template-columns: 0.7fr 0.9fr 1.3fr; gap: 10px; }
 .field.dim { opacity: 0.4; }
 
 select, .plain-input {
@@ -128,6 +127,13 @@ select, .plain-input {
 .money-input:disabled { color: #a3abb4; }
 
 .field-hint { font: 400 11px "IBM Plex Sans", sans-serif; color: #a3abb4; }
+
+.hem-basis-strip { border-top: 1px solid #eceff2; background: #fbfcfd; padding: 14px 16px; display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.hem-basis-controls { display: flex; flex-direction: column; gap: 8px; }
+.hem-basis-title { font: 600 11px "IBM Plex Sans", sans-serif; letter-spacing: 0.1em; color: #8a939c; }
+.hem-basis-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.hem-basis-select { min-width: 170px; }
+.hem-basis-note { font: 400 11.5px/1.5 "IBM Plex Sans", sans-serif; color: #a3abb4; max-width: 540px; padding-bottom: 2px; }
 
 /* Zone 2: results */
 .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
