@@ -239,7 +239,7 @@ export const DEFAULT_ASSUMPTIONS = {
   fbCC: 3.8,
   fcCC: 3.0,
   fbShade: 80,
-  fcShade: 90,
+  fcShade: 100,
   buffer: 3.0,
 };
 
